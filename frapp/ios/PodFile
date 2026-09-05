@@ -1,0 +1,14 @@
+platform :ios, '12.0'
+
+# Add for ML Kit
+target 'Runner' do
+  use_frameworks!
+  use_modular_headers!
+  
+  # Google ML Kit dependencies
+  pod 'GoogleMLKit/TextRecognition'
+  pod 'GoogleMLKit/TextRecognitionChinese'
+  pod 'GoogleMLKit/TextRecognitionDevanagari'
+  pod 'GoogleMLKit/TextRecognitionJapanese'
+  pod 'GoogleMLKit/TextRecognitionKorean'
+end
