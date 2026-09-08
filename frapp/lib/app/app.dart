@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:get_it/get_it.dart';
 
 import '../bloc/media/media_bloc.dart';
 import '../bloc/ocr/ocr_bloc.dart';
 import '../bloc/dictionary/dictionary_bloc.dart';
-import '../screens/home_screen.dart';
+import '../repositories/dictionary_repository.dart';
+import '../repositories/media_repository.dart';
+import '../repositories/ocr_repository.dart';
+import '../services/service_locator.dart';
 import 'routes.dart';
 import 'theme.dart';
 

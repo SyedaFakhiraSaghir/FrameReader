@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,6 +8,7 @@ import '../bloc/media/media_bloc.dart';
 import '../bloc/media/media_event.dart';
 import '../bloc/media/media_state.dart';
 import '../bloc/ocr/ocr_bloc.dart';
+import '../bloc/ocr/ocr_event.dart';
 import '../models/media_item.dart';
 import '../app/routes.dart';
 
@@ -34,7 +37,9 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
   Future<void> _initializeVideo() async {
     if (_mediaItem == null) return;
     
-    _controller = VideoPlayerController.file(File(_mediaItem!.path));
+    final mediaPath = _mediaItem!.path;
+    if (mediaPath == null || mediaPath.isEmpty) return;
+    _controller = VideoPlayerController.file(File(mediaPath));
     await _controller.initialize();
     
     setState(() {
@@ -56,7 +61,7 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
         actions: [
           TextButton.icon(
             onPressed: _isInitialized ? _extractFrame : null,
-            icon: const Icon(Icons.frame_focus),
+            icon: const Icon(Icons.center_focus_strong),
             label: const Text('Extract Frame'),
           ),
         ],
@@ -161,16 +166,18 @@ class _VideoEditorScreenState extends State<VideoEditorScreen> {
     
     // Wait for frame extraction
     await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
     
     // Navigate to OCR with the extracted frame
     final state = context.read<MediaBloc>().state;
     if (state is MediaLoaded && state.extractedFramePath != null) {
       context.read<OCRBloc>().add(
         PerformOCREvent(
-          imagePath: state.extractedFramePath!,
+          media: state.extractedFrame!,
           language: 'en', // Use selected language
         ),
       );
+      if (!mounted) return;
       Navigator.pushNamed(context, AppRoutes.ocrResult);
     }
   }

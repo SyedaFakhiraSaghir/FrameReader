@@ -1,132 +1,178 @@
-import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:video_player/video_player.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import '../models/media_item.dart';
+import '../platform/io_support.dart';
+import '../platform/web_media.dart';
 import '../services/media_service.dart';
-import '../utils/constants.dart';
 
 class MediaRepository {
-  final _mediaService = MediaService();
-  
-  Future<MediaItem?> pickImage() async {
-    try {
-      final XFile? image = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 80,
-      );
-      
-      if (image == null) return null;
-      
-      final path = await _mediaService.saveMediaFile(
-        File(image.path),
-        'image',
-      );
-      
-      return MediaItem(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        path: path,
-        type: MediaType.image,
-        createdAt: DateTime.now(),
-        metadata: {'originalPath': image.path},
-      );
-    } catch (e) {
-      rethrow;
-    }
+  MediaRepository({MediaService? mediaService})
+      : _mediaService = mediaService ?? MediaService();
+
+  final MediaService _mediaService;
+  static const _macCamera = MethodChannel('frapp/camera');
+
+  Future<MediaItem?> pickImage() {
+    return _pickFile(FileType.image, MediaType.image, 'image');
   }
-  
-  Future<MediaItem?> pickVideo() async {
-    try {
-      final XFile? video = await ImagePicker().pickVideo(
-        source: ImageSource.gallery,
-      );
-      
-      if (video == null) return null;
-      
-      final path = await _mediaService.saveMediaFile(
-        File(video.path),
-        'video',
-      );
-      
-      return MediaItem(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        path: path,
-        type: MediaType.video,
-        createdAt: DateTime.now(),
-        metadata: {'originalPath': video.path},
-      );
-    } catch (e) {
-      rethrow;
+
+  Future<MediaItem?> captureImage() async {
+    if (isMacOS) {
+      return _captureOnMac('capturePhoto', MediaType.image, 'image', 'jpg');
     }
+    return _selectWithImagePicker(ImageSource.camera, MediaType.image, 'image');
   }
-  
-  Future<MediaItem?> pickDocument() async {
-    try {
-      final FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'doc', 'docx', 'txt'],
-      );
-      
-      if (result == null || result.files.isEmpty) return null;
-      
-      final file = File(result.files.first.path!);
-      final path = await _mediaService.saveMediaFile(file, 'document');
-      
-      return MediaItem(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        path: path,
-        type: MediaType.document,
-        createdAt: DateTime.now(),
-        metadata: {
-          'name': result.files.first.name,
-          'size': result.files.first.size,
-          'extension': result.files.first.extension,
-        },
-      );
-    } catch (e) {
-      rethrow;
+
+  Future<MediaItem?> pickVideo() {
+    return _pickFile(FileType.video, MediaType.video, 'video');
+  }
+
+  Future<MediaItem?> captureVideo() async {
+    if (isMacOS) {
+      return _captureOnMac('captureVideo', MediaType.video, 'video', 'mov');
     }
+    return _selectWithImagePicker(ImageSource.camera, MediaType.video, 'video');
   }
-  
+
+  Future<MediaItem?> pickDocument() {
+    return _pickFile(
+      FileType.custom,
+      MediaType.document,
+      'document',
+      allowedExtensions: const ['pdf', 'doc', 'docx', 'txt', 'rtf'],
+    );
+  }
+
+  Future<MediaItem> saveImageBytes(Uint8List bytes, {String name = 'frame.jpg'}) {
+    return _toMediaItem(
+      bytes: bytes,
+      fileName: name,
+      mediaType: MediaType.image,
+      directory: 'image',
+    );
+  }
+
   Future<String> processMedia(MediaItem mediaItem) async {
-    // Process media based on type
     switch (mediaItem.type) {
       case MediaType.image:
-        return mediaItem.path;
       case MediaType.video:
-        // For video, we'll process later
-        return mediaItem.path;
+        return mediaItem.path ?? mediaItem.fileName;
       case MediaType.document:
-        // For documents, convert to image for OCR
-        return await _mediaService.convertDocumentToImage(mediaItem.path);
+        return mediaItem.path ?? mediaItem.fileName;
     }
   }
-  
-  Future<String> extractFrame(MediaItem videoItem, Duration position) async {
-    final controller = VideoPlayerController.file(File(videoItem.path));
-    await controller.initialize();
-    await controller.seekTo(position);
-    
-    // Wait for frame to be rendered
-    await Future.delayed(const Duration(milliseconds: 100));
-    
-    // Capture frame
-    final tempDir = await getTemporaryDirectory();
-    final framePath = '${tempDir.path}/frame_${DateTime.now().millisecondsSinceEpoch}.png';
-    
-    // Use video_player's method to capture frame
-    // Note: This is a simplified version - you might need to use a more robust method
-    final bytes = await controller.video?.renderImage(position) as Future<Uint8List>?;
-    
-    if (bytes != null) {
-      final frameFile = File(framePath);
-      await frameFile.writeAsBytes(bytes);
-      return framePath;
+
+  Future<MediaItem?> _selectWithImagePicker(
+    ImageSource source,
+    MediaType mediaType,
+    String directory,
+  ) async {
+    final picker = ImagePicker();
+    final XFile? file = mediaType == MediaType.video
+        ? await picker.pickVideo(source: source)
+        : await picker.pickImage(source: source, imageQuality: 85);
+    if (file == null) return null;
+
+    final bytes = await file.readAsBytes();
+    return _toMediaItem(
+      bytes: bytes,
+      fileName: file.name,
+      mediaType: mediaType,
+      directory: directory,
+      originalPath: file.path,
+    );
+  }
+
+  Future<MediaItem?> _pickFile(
+    FileType type,
+    MediaType mediaType,
+    String directory, {
+    List<String>? allowedExtensions,
+  }) async {
+    final selected = await FilePicker.pickFile(
+      type: type,
+      allowedExtensions: allowedExtensions,
+    );
+    if (selected == null) return null;
+
+    final bytes = await selected.readAsBytes();
+    return _toMediaItem(
+      bytes: bytes,
+      fileName: selected.name,
+      mediaType: mediaType,
+      directory: directory,
+      originalPath: selected.path,
+      extraMetadata: {
+        'size': await selected.length(),
+        'extension': selected.extension,
+      },
+    );
+  }
+
+  Future<MediaItem?> _captureOnMac(
+    String method,
+    MediaType mediaType,
+    String directory,
+    String fallbackExtension,
+  ) async {
+    final capturedPath = await _macCamera.invokeMethod<String>(method);
+    if (capturedPath == null || capturedPath.isEmpty) return null;
+    final bytes = await readFileBytes(capturedPath);
+    return _toMediaItem(
+      bytes: bytes,
+      fileName: 'capture.$fallbackExtension',
+      mediaType: mediaType,
+      directory: directory,
+      originalPath: capturedPath,
+    );
+  }
+
+  Future<MediaItem> _toMediaItem({
+    required Uint8List bytes,
+    required String fileName,
+    required MediaType mediaType,
+    required String directory,
+    String? originalPath,
+    Map<String, dynamic>? extraMetadata,
+  }) async {
+    String? savedPath;
+    String? objectUrl;
+
+    if (hasFileSystem) {
+      savedPath = await _mediaService.saveBytes(bytes, directory, fileName);
+    } else if (kIsWeb) {
+      objectUrl = createBlobUrl(bytes, _mimeType(mediaType, fileName));
     }
-    
-    controller.dispose();
-    throw Exception('Failed to extract frame');
+
+    final keepBytes = kIsWeb || mediaType != MediaType.video;
+    return MediaItem(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      path: savedPath ?? originalPath,
+      bytes: keepBytes ? bytes : null,
+      fileName: fileName,
+      type: mediaType,
+      createdAt: DateTime.now(),
+      metadata: {
+        if (originalPath != null) 'originalPath': originalPath,
+        if (objectUrl != null) 'objectUrl': objectUrl,
+        ...?extraMetadata,
+      },
+    );
+  }
+
+  String _mimeType(MediaType type, String fileName) {
+    final ext = fileName.split('.').last.toLowerCase();
+    switch (type) {
+      case MediaType.image:
+        return ext == 'png' ? 'image/png' : 'image/jpeg';
+      case MediaType.video:
+        return ext == 'webm' ? 'video/webm' : 'video/mp4';
+      case MediaType.document:
+        if (ext == 'pdf') return 'application/pdf';
+        return 'application/octet-stream';
+    }
   }
 }

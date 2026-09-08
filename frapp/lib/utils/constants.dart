@@ -20,12 +20,6 @@ class AppConstants {
   static const double defaultBorderRadius = 12.0;
 }
 
-enum MediaType {
-  image,
-  video,
-  document,
-}
-
 enum Language {
   english('en', 'English'),
   urdu('ur', 'Urdu'),

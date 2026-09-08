@@ -10,7 +10,11 @@ abstract class MediaEvent extends Equatable {
 
 class PickImageEvent extends MediaEvent {}
 
+class CaptureImageEvent extends MediaEvent {}
+
 class PickVideoEvent extends MediaEvent {}
+
+class CaptureVideoEvent extends MediaEvent {}
 
 class PickDocumentEvent extends MediaEvent {}
 

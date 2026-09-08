@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/material.dart';
 
 extension FileExtension on File {
   String get fileExtension {

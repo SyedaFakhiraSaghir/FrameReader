@@ -28,5 +28,11 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSCameraUsageDescription</key>
+	<string>FrameReader uses the camera to capture photos and videos for OCR.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>FrameReader uses the microphone when recording videos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>FrameReader needs access to select photos and videos for OCR.</string>
 </dict>
 </plist>

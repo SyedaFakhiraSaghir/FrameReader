@@ -1,73 +1,77 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:get_it/get_it.dart';
 
 import 'media_event.dart';
 import 'media_state.dart';
 import '../../repositories/media_repository.dart';
+import '../../services/ocr_service.dart';
+import '../../services/service_locator.dart';
 
 class MediaBloc extends Bloc<MediaEvent, MediaState> {
-  final MediaRepository _repository;
-  
   MediaBloc(this._repository) : super(MediaInitial()) {
     on<PickImageEvent>(_onPickImage);
+    on<CaptureImageEvent>(_onCaptureImage);
     on<PickVideoEvent>(_onPickVideo);
+    on<CaptureVideoEvent>(_onCaptureVideo);
     on<PickDocumentEvent>(_onPickDocument);
     on<ProcessMediaEvent>(_onProcessMedia);
     on<ClearMediaEvent>(_onClearMedia);
     on<ExtractFrameEvent>(_onExtractFrame);
   }
-  
+
+  final MediaRepository _repository;
+
   Future<void> _onPickImage(
     PickImageEvent event,
     Emitter<MediaState> emit,
   ) async {
-    emit(MediaLoading());
-    try {
-      final media = await _repository.pickImage();
-      if (media != null) {
-        emit(MediaLoaded(currentMedia: media));
-      } else {
-        emit(const MediaError('No image selected'));
-      }
-    } catch (e) {
-      emit(MediaError(e.toString()));
-    }
+    await _load(_repository.pickImage, emit);
   }
-  
+
   Future<void> _onPickVideo(
     PickVideoEvent event,
     Emitter<MediaState> emit,
   ) async {
-    emit(MediaLoading());
-    try {
-      final media = await _repository.pickVideo();
-      if (media != null) {
-        emit(MediaLoaded(currentMedia: media));
-      } else {
-        emit(const MediaError('No video selected'));
-      }
-    } catch (e) {
-      emit(MediaError(e.toString()));
-    }
+    await _load(_repository.pickVideo, emit);
   }
-  
+
   Future<void> _onPickDocument(
     PickDocumentEvent event,
     Emitter<MediaState> emit,
   ) async {
+    await _load(_repository.pickDocument, emit);
+  }
+
+  Future<void> _onCaptureImage(
+    CaptureImageEvent event,
+    Emitter<MediaState> emit,
+  ) async {
+    await _load(_repository.captureImage, emit);
+  }
+
+  Future<void> _onCaptureVideo(
+    CaptureVideoEvent event,
+    Emitter<MediaState> emit,
+  ) async {
+    await _load(_repository.captureVideo, emit);
+  }
+
+  Future<void> _load(
+    Future<dynamic> Function() picker,
+    Emitter<MediaState> emit,
+  ) async {
     emit(MediaLoading());
     try {
-      final media = await _repository.pickDocument();
-      if (media != null) {
-        emit(MediaLoaded(currentMedia: media));
+      final media = await picker();
+      if (media == null) {
+        emit(MediaInitial());
       } else {
-        emit(const MediaError('No document selected'));
+        emit(MediaLoaded(currentMedia: media));
       }
     } catch (e) {
-      emit(MediaError(e.toString()));
+      emit(MediaError(e.toString().replaceFirst('Exception: ', '')));
     }
   }
-  
+
   Future<void> _onProcessMedia(
     ProcessMediaEvent event,
     Emitter<MediaState> emit,
@@ -80,37 +84,45 @@ class MediaBloc extends Bloc<MediaEvent, MediaState> {
         processedPath: processedPath,
       ));
     } catch (e) {
-      emit(MediaError(e.toString()));
+      emit(MediaError(e.toString().replaceFirst('Exception: ', '')));
     }
   }
-  
+
   Future<void> _onClearMedia(
     ClearMediaEvent event,
     Emitter<MediaState> emit,
   ) async {
     emit(MediaInitial());
   }
-  
+
   Future<void> _onExtractFrame(
     ExtractFrameEvent event,
     Emitter<MediaState> emit,
   ) async {
-    emit(MediaLoading());
+    final current = state is MediaLoaded
+        ? state as MediaLoaded
+        : MediaLoaded(currentMedia: event.videoItem);
     try {
-      final framePath = await _repository.extractFrame(
+      emit(MediaLoaded(
+        currentMedia: current.currentMedia ?? event.videoItem,
+        mediaHistory: current.mediaHistory,
+        isExtractingFrame: true,
+      ));
+      final frameBytes = await getIt<OCRService>().extractVideoFrame(
         event.videoItem,
         event.position,
       );
-      if (state is MediaLoaded) {
-        final currentState = state as MediaLoaded;
-        emit(MediaLoaded(
-          currentMedia: currentState.currentMedia,
-          mediaHistory: currentState.mediaHistory,
-          extractedFramePath: framePath,
-        ));
-      }
+      final frame = await _repository.saveImageBytes(
+        frameBytes,
+        name: 'frame_${event.position.inMilliseconds}.jpg',
+      );
+      emit(MediaLoaded(
+        currentMedia: current.currentMedia ?? event.videoItem,
+        mediaHistory: current.mediaHistory,
+        extractedFrame: frame,
+      ));
     } catch (e) {
-      emit(MediaError(e.toString()));
+      emit(MediaError(e.toString().replaceFirst('Exception: ', '')));
     }
   }
 }

@@ -50,4 +50,4 @@ class DictionaryError extends DictionaryState {
   
   @override
   List<Object?> get props => [message];
-}c 
+}

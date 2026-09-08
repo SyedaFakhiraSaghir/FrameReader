@@ -18,7 +18,7 @@ class WordTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: Colors.blue.withOpacity(0.1),
+          backgroundColor: Colors.blue.withValues(alpha: 0.1),
           child: Text(
             wordMeaning.word[0].toUpperCase(),
             style: const TextStyle(

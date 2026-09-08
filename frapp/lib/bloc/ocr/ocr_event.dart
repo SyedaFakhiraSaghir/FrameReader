@@ -1,39 +1,38 @@
 import 'package:equatable/equatable.dart';
+
 import '../../models/media_item.dart';
 
 abstract class OCREvent extends Equatable {
   const OCREvent();
-  
+
   @override
   List<Object?> get props => [];
 }
 
 class PerformOCREvent extends OCREvent {
-  final String imagePath;
+  final MediaItem media;
   final String? language;
-  
+
   const PerformOCREvent({
-    required this.imagePath,
+    required this.media,
     this.language,
   });
-  
+
   @override
-  List<Object?> get props => [imagePath, language];
+  List<Object?> get props => [media, language];
 }
 
-class SelectWordEvent extends OCREvent {
-  final String word;
-  final String sourceLanguage;
-  final String targetLanguage;
-  
-  const SelectWordEvent({
-    required this.word,
-    required this.sourceLanguage,
-    required this.targetLanguage,
+class PerformOCROnImageBytesEvent extends OCREvent {
+  final MediaItem image;
+  final String? language;
+
+  const PerformOCROnImageBytesEvent({
+    required this.image,
+    this.language,
   });
-  
+
   @override
-  List<Object?> get props => [word, sourceLanguage, targetLanguage];
+  List<Object?> get props => [image, language];
 }
 
 class ClearOCRResultEvent extends OCREvent {}

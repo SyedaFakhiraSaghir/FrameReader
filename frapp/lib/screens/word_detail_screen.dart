@@ -65,7 +65,7 @@ class WordDetailScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
+                  color: Colors.blue.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
@@ -116,7 +116,7 @@ class WordDetailScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.1),
+                      color: Colors.green.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -146,7 +146,7 @@ class WordDetailScreen extends StatelessWidget {
                 children: meaning.synonyms
                     .map((synonym) => Chip(
                           label: Text(synonym),
-                          backgroundColor: Colors.blue.withOpacity(0.1),
+                          backgroundColor: Colors.blue.withValues(alpha: 0.1),
                         ))
                     .toList(),
               ),
@@ -168,7 +168,7 @@ class WordDetailScreen extends StatelessWidget {
                 children: meaning.antonyms
                     .map((antonym) => Chip(
                           label: Text(antonym),
-                          backgroundColor: Colors.red.withOpacity(0.1),
+                          backgroundColor: Colors.red.withValues(alpha: 0.1),
                         ))
                     .toList(),
               ),

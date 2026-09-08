@@ -1,45 +1,41 @@
+import 'dart:typed_data';
+
 import 'package:equatable/equatable.dart';
 
 enum MediaType { image, video, document }
 
 class MediaItem extends Equatable {
   final String id;
-  final String path;
+  final String? path;
+  final Uint8List? bytes;
+  final String fileName;
   final MediaType type;
   final DateTime createdAt;
   final Map<String, dynamic> metadata;
-  
+
   const MediaItem({
     required this.id,
-    required this.path,
+    this.path,
+    this.bytes,
+    required this.fileName,
     required this.type,
     required this.createdAt,
     this.metadata = const {},
   });
-  
-  factory MediaItem.fromMap(Map<String, dynamic> map) {
-    return MediaItem(
-      id: map['id'],
-      path: map['path'],
-      type: MediaType.values.firstWhere(
-        (e) => e.toString() == map['type'],
-        orElse: () => MediaType.image,
-      ),
-      createdAt: DateTime.parse(map['createdAt']),
-      metadata: Map<String, dynamic>.from(map['metadata'] ?? {}),
-    );
+
+  String get extension {
+    final fromMeta = metadata['extension']?.toString();
+    if (fromMeta != null && fromMeta.isNotEmpty) {
+      return fromMeta.toLowerCase();
+    }
+    final name = fileName.toLowerCase();
+    final dot = name.lastIndexOf('.');
+    if (dot == -1 || dot == name.length - 1) return '';
+    return name.substring(dot + 1);
   }
-  
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'path': path,
-      'type': type.toString(),
-      'createdAt': createdAt.toIso8601String(),
-      'metadata': metadata,
-    };
-  }
-  
+
+  String? get objectUrl => metadata['objectUrl'] as String?;
+
   @override
-  List<Object?> get props => [id, path, type, createdAt];
+  List<Object?> get props => [id, path, fileName, type, createdAt];
 }

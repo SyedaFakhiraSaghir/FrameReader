@@ -26,29 +26,29 @@ class _LanguageSelectorState extends State<LanguageSelector> {
       title: const Text('Select Language'),
       content: SizedBox(
         width: double.maxFinite,
-        child: ListView.builder(
-          shrinkWrap: true,
-          itemCount: _languageService.supportedLanguages.length,
-          itemBuilder: (context, index) {
-            final code = _languageService.supportedLanguages.keys.elementAt(index);
-            final name = _languageService.supportedLanguages.values.elementAt(index);
-            
-            return ListTile(
-              title: Text(name),
-              leading: Radio<String>(
-                value: code,
-                groupValue: _selectedLanguage,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedLanguage = value!;
-                  });
-                },
-              ),
-              trailing: code == _selectedLanguage
-                  ? const Icon(Icons.check, color: Colors.green)
-                  : null,
-            );
+        child: RadioGroup<String>(
+          groupValue: _selectedLanguage,
+          onChanged: (value) {
+            if (value != null) {
+              setState(() => _selectedLanguage = value);
+            }
           },
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: _languageService.supportedLanguages.length,
+            itemBuilder: (context, index) {
+              final code = _languageService.supportedLanguages.keys.elementAt(index);
+              final name = _languageService.supportedLanguages.values.elementAt(index);
+
+              return ListTile(
+                title: Text(name),
+                leading: Radio<String>(value: code),
+                trailing: code == _selectedLanguage
+                    ? const Icon(Icons.check, color: Colors.green)
+                    : null,
+              );
+            },
+          ),
         ),
       ),
       actions: [
