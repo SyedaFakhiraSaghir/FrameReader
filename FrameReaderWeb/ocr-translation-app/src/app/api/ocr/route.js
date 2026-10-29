@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
-import Tesseract from 'tesseract.js';
-import sharp from 'sharp';
 
+// Simple OCR using a free API
 export async function POST(request) {
   try {
     const formData = await request.formData();
     const file = formData.get('file');
-    const fileType = formData.get('type');
 
     if (!file) {
       return NextResponse.json(
@@ -15,49 +13,39 @@ export async function POST(request) {
       );
     }
 
-    // Convert file to buffer
+    // Convert file to base64
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    
-    // Process based on file type
-    let processedBuffer = buffer;
-    
-    if (fileType?.startsWith('image/')) {
-      try {
-        // Optimize image for OCR
-        processedBuffer = await sharp(buffer)
-          .resize(1200, null, { withoutEnlargement: true })
-          .grayscale()
-          .sharpen()
-          .toBuffer();
-      } catch (sharpError) {
-        console.warn('Sharp processing failed, using original:', sharpError);
-        // Fall back to original buffer
-        processedBuffer = buffer;
-      }
+    const base64Image = buffer.toString('base64');
+
+    // Use OCR.space free API (no API key required for limited usage)
+    const response = await fetch('https://api.ocr.space/parse/image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        base64Image: `data:${file.type};base64,${base64Image}`,
+        language: 'eng',
+        isOverlayRequired: 'false',
+        detectOrientation: 'true',
+        scale: 'true',
+        isTable: 'false',
+        OCREngine: '2', // Use both OCR engines for better accuracy
+      }),
+    });
+
+    const data = await response.json();
+
+    if (data.ErrorMessage) {
+      throw new Error(data.ErrorMessage);
     }
 
-    // Perform OCR with better error handling
-    let result;
-    try {
-      result = await Tesseract.recognize(processedBuffer, 'urd+eng', {
-        logger: m => {
-          if (m.status === 'recognizing text') {
-            console.log(`OCR Progress: ${Math.round(m.progress * 100)}%`);
-          }
-        },
-      });
-    } catch (ocrError) {
-      console.error('Tesseract OCR Error:', ocrError);
-      return NextResponse.json(
-        { error: 'OCR processing failed. Please try with a clearer image.' },
-        { status: 500 }
-      );
-    }
+    // Extract text from response
+    const parsedResults = data.ParsedResults || [];
+    const text = parsedResults.map(result => result.ParsedText).join('\n');
 
-    const text = result.data.text || '';
-    
-    // Extract words with better filtering
+    // Extract words
     const words = text
       .trim()
       .split(/\s+/)
@@ -65,10 +53,10 @@ export async function POST(request) {
 
     return NextResponse.json({
       text: text.trim(),
-      confidence: result.data.confidence || 0,
+      confidence: parsedResults[0]?.TextOverlay?.Lines?.[0]?.Words?.[0]?.WordText || 0,
       words: words,
       wordCount: words.length,
-      language: 'urd+eng',
+      language: 'eng',
     });
 
   } catch (error) {

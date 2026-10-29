@@ -19,7 +19,7 @@
     "react-dropzone": "^14.2.3",
     "react-player": "^2.15.1",
     "sharp": "^0.35.4",
-    "tesseract.js": "^5.0.3",
+    "tesseract.js": "^4.1.1",
     "uuid": "^14.0.2"
   },
   "devDependencies": {
