@@ -52,6 +52,19 @@ class WebNativeBridge implements NativeBridge {
     return _jsBytes(raw, 'The PDF page could not be rendered.');
   }
 
+  @override
+  Future<int> pdfPageCount(Uint8List bytes) async {
+    final promise = _api.callMethod(
+      'pdfPageCount'.toJS,
+      bytes.toJS,
+    ) as JSPromise;
+    final count = (await promise.toDart).dartify();
+    if (count is! num || count < 1) {
+      throw StateError('The PDF does not contain any readable pages.');
+    }
+    return count.toInt();
+  }
+
   OCRResult _parseOcr(JSObject raw, String language) {
     final text = raw.getProperty('text'.toJS).dartify()?.toString() ?? '';
     final wordsRaw = raw.getProperty('words'.toJS).dartify();

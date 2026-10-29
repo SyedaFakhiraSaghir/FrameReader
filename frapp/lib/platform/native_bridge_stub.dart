@@ -8,6 +8,8 @@ abstract class NativeBridge {
   Future<Uint8List> extractVideoFrame(String path, Duration position);
 
   Future<Uint8List> renderPdfPage(Uint8List bytes, {int pageIndex = 0});
+
+  Future<int> pdfPageCount(Uint8List bytes);
 }
 
 class UnsupportedNativeBridge implements NativeBridge {
@@ -20,11 +22,17 @@ class UnsupportedNativeBridge implements NativeBridge {
 
   @override
   Future<Uint8List> extractVideoFrame(String path, Duration position) {
-    throw UnsupportedError('Frame extraction is not available on this platform.');
+    throw UnsupportedError(
+        'Frame extraction is not available on this platform.');
   }
 
   @override
   Future<Uint8List> renderPdfPage(Uint8List bytes, {int pageIndex = 0}) {
+    throw UnsupportedError('PDF rendering is not available on this platform.');
+  }
+
+  @override
+  Future<int> pdfPageCount(Uint8List bytes) {
     throw UnsupportedError('PDF rendering is not available on this platform.');
   }
 }

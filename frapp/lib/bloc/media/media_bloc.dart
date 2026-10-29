@@ -3,8 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'media_event.dart';
 import 'media_state.dart';
 import '../../repositories/media_repository.dart';
-import '../../services/ocr_service.dart';
-import '../../services/service_locator.dart';
+import '../../models/media_item.dart';
 
 class MediaBloc extends Bloc<MediaEvent, MediaState> {
   MediaBloc(this._repository) : super(MediaInitial()) {
@@ -19,6 +18,7 @@ class MediaBloc extends Bloc<MediaEvent, MediaState> {
   }
 
   final MediaRepository _repository;
+  int _requestId = 0;
 
   Future<void> _onPickImage(
     PickImageEvent event,
@@ -56,19 +56,22 @@ class MediaBloc extends Bloc<MediaEvent, MediaState> {
   }
 
   Future<void> _load(
-    Future<dynamic> Function() picker,
+    Future<MediaItem?> Function() picker,
     Emitter<MediaState> emit,
   ) async {
+    final requestId = ++_requestId;
     emit(MediaLoading());
     try {
       final media = await picker();
+      if (requestId != _requestId || emit.isDone) return;
       if (media == null) {
         emit(MediaInitial());
       } else {
         emit(MediaLoaded(currentMedia: media));
       }
-    } catch (e) {
-      emit(MediaError(e.toString().replaceFirst('Exception: ', '')));
+    } on Object catch (error) {
+      if (requestId != _requestId || emit.isDone) return;
+      emit(MediaError(error.toString().replaceFirst('Exception: ', '')));
     }
   }
 
@@ -76,15 +79,18 @@ class MediaBloc extends Bloc<MediaEvent, MediaState> {
     ProcessMediaEvent event,
     Emitter<MediaState> emit,
   ) async {
+    final requestId = ++_requestId;
     emit(MediaLoading());
     try {
       final processedPath = await _repository.processMedia(event.mediaItem);
+      if (requestId != _requestId || emit.isDone) return;
       emit(MediaProcessed(
         mediaItem: event.mediaItem,
         processedPath: processedPath,
       ));
-    } catch (e) {
-      emit(MediaError(e.toString().replaceFirst('Exception: ', '')));
+    } on Object catch (error) {
+      if (requestId != _requestId || emit.isDone) return;
+      emit(MediaError(error.toString().replaceFirst('Exception: ', '')));
     }
   }
 
@@ -92,6 +98,7 @@ class MediaBloc extends Bloc<MediaEvent, MediaState> {
     ClearMediaEvent event,
     Emitter<MediaState> emit,
   ) async {
+    _requestId++;
     emit(MediaInitial());
   }
 
@@ -99,30 +106,31 @@ class MediaBloc extends Bloc<MediaEvent, MediaState> {
     ExtractFrameEvent event,
     Emitter<MediaState> emit,
   ) async {
-    final current = state is MediaLoaded
-        ? state as MediaLoaded
+    final requestId = ++_requestId;
+    final previous = state;
+    final current = previous is MediaLoaded
+        ? previous
         : MediaLoaded(currentMedia: event.videoItem);
     try {
       emit(MediaLoaded(
         currentMedia: current.currentMedia ?? event.videoItem,
         mediaHistory: current.mediaHistory,
+        extractedFrame: current.extractedFrame,
         isExtractingFrame: true,
       ));
-      final frameBytes = await getIt<OCRService>().extractVideoFrame(
+      final frame = await _repository.extractFrame(
         event.videoItem,
         event.position,
       );
-      final frame = await _repository.saveImageBytes(
-        frameBytes,
-        name: 'frame_${event.position.inMilliseconds}.jpg',
-      );
+      if (requestId != _requestId || emit.isDone) return;
       emit(MediaLoaded(
         currentMedia: current.currentMedia ?? event.videoItem,
         mediaHistory: current.mediaHistory,
         extractedFrame: frame,
       ));
-    } catch (e) {
-      emit(MediaError(e.toString().replaceFirst('Exception: ', '')));
+    } on Object catch (error) {
+      if (requestId != _requestId || emit.isDone) return;
+      emit(MediaError(error.toString().replaceFirst('Exception: ', '')));
     }
   }
 }

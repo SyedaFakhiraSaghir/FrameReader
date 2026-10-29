@@ -53,9 +53,41 @@ class OCRService {
       case 'docx':
         return extractFromPlainText(_docxToText(bytes), language: language);
       case 'pdf':
-        final page = await _nativeBridge.renderPdfPage(bytes);
-        final result = await extractFromImageBytes(page, language: language);
-        return result._withPreview(page);
+        final pageCount = await _nativeBridge.pdfPageCount(bytes);
+        if (pageCount < 1) {
+          throw Exception('The PDF does not contain any readable pages.');
+        }
+        final pageResults = <OCRResult>[];
+        Uint8List? previewBytes;
+        for (var pageIndex = 0; pageIndex < pageCount; pageIndex++) {
+          final page = await _nativeBridge.renderPdfPage(
+            bytes,
+            pageIndex: pageIndex,
+          );
+          previewBytes ??= page;
+          pageResults.add(
+            await extractFromImageBytes(page, language: language),
+          );
+        }
+
+        final words = pageResults.expand((result) => result.words).toList();
+        final wordCount = words.length;
+        final confidence = wordCount == 0
+            ? 0.0
+            : words.fold<double>(0, (total, word) => total + word.confidence) /
+                wordCount;
+        return OCRResult(
+          text: pageResults
+              .map((result) => result.text.trim())
+              .where((text) => text.isNotEmpty)
+              .join('\n\n'),
+          words: words,
+          language: language ?? 'en',
+          confidence: confidence,
+          imageSize: pageResults.first.imageSize,
+          previewBytes: previewBytes,
+          metadata: {'pageCount': pageCount},
+        );
       default:
         throw Exception(
           'OCR supports PDF, DOCX, and TXT documents. Convert .doc files to PDF or DOCX first.',
@@ -100,11 +132,23 @@ class OCRService {
       throw Exception('The DOCX file did not contain readable text.');
     }
     final xml = utf8.decode(file.content, allowMalformed: true);
-    return xml
+    final text = xml
+        .replaceAll(RegExp(r'<w:tab[^>]*/>'), '\t')
+        .replaceAll(RegExp(r'<w:br[^>]*/>'), '\n')
         .replaceAll(RegExp(r'</w:p>'), '\n')
-        .replaceAll(RegExp(r'<[^>]+>'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(RegExp(r'<[^>]+>'), '')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&apos;', "'")
+        .replaceAll(RegExp(r'[ \t]+\n'), '\n')
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
         .trim();
+    if (text.isEmpty) {
+      throw Exception('The DOCX file did not contain readable text.');
+    }
+    return text;
   }
 
   void dispose() {}

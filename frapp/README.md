@@ -7,7 +7,7 @@ A Flutter application that performs OCR on images, videos, and documents with mu
 - 📷 **Image Input**: Select images from gallery for OCR
 - 🎥 **Video Input**: Select videos, pause and extract frames for OCR
 - 📄 **Document Input**: Support for PDF, DOCX, and text files
-- 🔍 **OCR**: Extract text using Google ML Kit
+- 🔍 **OCR**: Google ML Kit on Android/iOS, Vision on macOS, and Tesseract.js on web
 - 🌍 **Multi-language**: Support for Urdu, English, and other languages
 - 📖 **Dictionary**: Click on any word to get its meaning
 - 🎨 **Clean UI**: Material Design with dark/light mode support
@@ -36,6 +36,18 @@ A Flutter application that performs OCR on images, videos, and documents with mu
 - German
 - Chinese
 - Hindi
+
+On Android and iOS, Google ML Kit supports Latin, Chinese, and Devanagari
+recognition scripts. Urdu and Arabic OCR are not supported by ML Kit on those
+platforms; web and macOS recognition depend on the language data available to
+their OCR engines.
+
+## Platform Notes
+
+- iOS requires a minimum deployment target of 15.5 for the Google ML Kit
+  Flutter plugin.
+- PDF files are rendered and OCR-processed page by page. DOCX text is parsed
+  into selectable words directly.
 
 ## Architecture
 

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -39,15 +37,23 @@ class _HomeScreenState extends State<HomeScreen> {
           return SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildMediaCategories(context),
-                  const SizedBox(height: 20),
-                  Expanded(
-                    child: _buildMediaPreview(context, state),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 960),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'What would you like to read?',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildMediaCategories(context),
+                      const SizedBox(height: 20),
+                      Expanded(child: _buildMediaPreview(context, state)),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           );
@@ -55,24 +61,48 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-  
+
   Widget _buildMediaCategories(BuildContext context) {
-    return Column(
-      children: [
-        _CategoryCard(
-          icon: Icons.image,
-          label: 'Image',
-          subtitle: 'Upload or take a photo',
-          onTap: () => _showImageOptions(context),
-        ),
-        const SizedBox(height: 12),
-        _CategoryCard(
-          icon: Icons.description,
-          label: 'Document',
-          subtitle: 'Upload a PDF or document file',
-          onTap: () => _showDocumentOptions(context),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final gap = 12.0;
+        final cardWidth = constraints.maxWidth >= 700
+            ? (constraints.maxWidth - gap * 2) / 3
+            : constraints.maxWidth;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            SizedBox(
+              width: cardWidth,
+              child: _CategoryCard(
+                icon: Icons.image_outlined,
+                label: 'Image',
+                subtitle: 'Choose or capture a photo',
+                onTap: () => _showImageOptions(context),
+              ),
+            ),
+            SizedBox(
+              width: cardWidth,
+              child: _CategoryCard(
+                icon: Icons.movie_outlined,
+                label: 'Video',
+                subtitle: 'Choose a frame to scan',
+                onTap: () => _showVideoOptions(context),
+              ),
+            ),
+            SizedBox(
+              width: cardWidth,
+              child: _CategoryCard(
+                icon: Icons.description_outlined,
+                label: 'Document',
+                subtitle: 'PDF, DOCX, TXT, or RTF',
+                onTap: () => _showDocumentOptions(context),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -104,6 +134,25 @@ class _HomeScreenState extends State<HomeScreen> {
           icon: Icons.upload_file,
           label: 'Upload from device',
           onTap: () => context.read<MediaBloc>().add(PickDocumentEvent()),
+        ),
+      ],
+    );
+  }
+
+  void _showVideoOptions(BuildContext context) {
+    _showOptionsSheet(
+      context,
+      title: 'Add video',
+      options: [
+        _SheetOption(
+          icon: Icons.videocam_outlined,
+          label: 'Record a video',
+          onTap: () => context.read<MediaBloc>().add(CaptureVideoEvent()),
+        ),
+        _SheetOption(
+          icon: Icons.video_library_outlined,
+          label: 'Choose from device',
+          onTap: () => context.read<MediaBloc>().add(PickVideoEvent()),
         ),
       ],
     );
@@ -143,12 +192,12 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-  
+
   Widget _buildMediaPreview(BuildContext context, MediaState state) {
     if (state is MediaLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    
+
     if (state is MediaError) {
       return Center(
         child: Column(
@@ -159,34 +208,34 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(
               state.message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.red),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ],
         ),
       );
     }
-    
+
     if (state is MediaLoaded && state.currentMedia != null) {
       return Column(
         children: [
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.grey[200],
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(12),
-                image: state.currentMedia!.type.toString().contains('image')
+                image: state.currentMedia!.type == MediaType.image
                     ? _imageDecoration(state.currentMedia!)
                     : null,
               ),
-              child: state.currentMedia!.type.toString().contains('video')
-                  ? const Center(
-                      child: Icon(Icons.play_circle_filled, size: 64),
-                    )
-                  : state.currentMedia!.type.toString().contains('document')
-                      ? const Center(
-                          child: Icon(Icons.picture_as_pdf, size: 64),
-                        )
-                      : null,
+              child: switch (state.currentMedia!.type) {
+                MediaType.video => const Center(
+                    child: Icon(Icons.play_circle_outline, size: 64),
+                  ),
+                MediaType.document => const Center(
+                    child: Icon(Icons.description_outlined, size: 64),
+                  ),
+                MediaType.image => null,
+              },
             ),
           ),
           const SizedBox(height: 16),
@@ -197,7 +246,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onPressed: () {
                     if (state.currentMedia != null) {
                       // Process media and navigate to OCR
-                      if (state.currentMedia!.type.toString().contains('video')) {
+                      if (state.currentMedia!.type == MediaType.video) {
                         Navigator.pushNamed(
                           context,
                           AppRoutes.videoEditor,
@@ -209,13 +258,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           PerformOCREvent(
                             media: state.currentMedia!,
                             language: getIt<LanguageService>().currentLanguage,
-                          )
+                          ),
                         );
                         Navigator.pushNamed(context, AppRoutes.ocrResult);
                       }
                     }
                   },
-                            icon: const Icon(Icons.text_snippet),
+                  icon: const Icon(Icons.document_scanner_outlined),
                   label: const Text('Perform OCR'),
                 ),
               ),
@@ -234,40 +283,40 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       );
     }
-    
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(12),
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
-      child: const Center(
+      child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.cloud_upload, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
+            const Icon(Icons.cloud_upload_outlined, size: 64),
+            const SizedBox(height: 16),
             Text(
-              'Select an image or document to get started',
+              'Select an image, video, or document to get started',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
       ),
     );
   }
-  
-  DecorationImage _imageDecoration(MediaItem media) {
+
+  DecorationImage? _imageDecoration(MediaItem media) {
     if (media.bytes != null) {
       return DecorationImage(
         image: MemoryImage(media.bytes!),
         fit: BoxFit.cover,
       );
     }
-    return DecorationImage(
-      image: FileImage(File(media.path!)),
-      fit: BoxFit.cover,
-    );
+    return null;
   }
 
   void _showLanguageDialog(BuildContext context) {
@@ -307,7 +356,12 @@ class _CategoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
-        leading: CircleAvatar(child: Icon(icon)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+          child: Icon(icon),
+        ),
         title: Text(label),
         subtitle: Text(subtitle),
         trailing: const Icon(Icons.chevron_right),

@@ -5,18 +5,20 @@ import 'dictionary_state.dart';
 import '../../repositories/dictionary_repository.dart';
 
 class DictionaryBloc extends Bloc<DictionaryEvent, DictionaryState> {
-  final DictionaryRepository _repository;
-  
   DictionaryBloc(this._repository) : super(DictionaryInitial()) {
     on<LookupWordEvent>(_onLookupWord);
     on<AddToHistoryEvent>(_onAddToHistory);
     on<ClearHistoryEvent>(_onClearHistory);
   }
-  
+
+  final DictionaryRepository _repository;
+  int _lookupRequestId = 0;
+
   Future<void> _onLookupWord(
     LookupWordEvent event,
     Emitter<DictionaryState> emit,
   ) async {
+    final requestId = ++_lookupRequestId;
     emit(DictionaryLoading());
     try {
       final meaning = await _repository.getWordMeaning(
@@ -24,7 +26,7 @@ class DictionaryBloc extends Bloc<DictionaryEvent, DictionaryState> {
         sourceLanguage: event.sourceLanguage,
         targetLanguage: event.targetLanguage,
       );
-      
+      if (requestId != _lookupRequestId || emit.isDone) return;
       if (meaning.meaning.isNotEmpty) {
         emit(DictionaryWordFound(meaning));
       } else {
@@ -33,11 +35,12 @@ class DictionaryBloc extends Bloc<DictionaryEvent, DictionaryState> {
           message: 'Word not found in dictionary',
         ));
       }
-    } catch (e) {
-      emit(DictionaryError(e.toString()));
+    } on Object catch (error) {
+      if (requestId != _lookupRequestId || emit.isDone) return;
+      emit(DictionaryError(error.toString().replaceFirst('Exception: ', '')));
     }
   }
-  
+
   Future<void> _onAddToHistory(
     AddToHistoryEvent event,
     Emitter<DictionaryState> emit,
@@ -50,7 +53,7 @@ class DictionaryBloc extends Bloc<DictionaryEvent, DictionaryState> {
       emit(DictionaryError(e.toString()));
     }
   }
-  
+
   Future<void> _onClearHistory(
     ClearHistoryEvent event,
     Emitter<DictionaryState> emit,

@@ -70,37 +70,82 @@ class _ResultBody extends StatelessWidget {
     String sourceLanguage,
   ) {
     final repository = getIt<DictionaryRepository>();
+    final lookup = repository.getWordMeaning(
+      word,
+      sourceLanguage: sourceLanguage,
+      targetLanguage: 'ur',
+    );
     showDialog<void>(
       context: context,
       builder: (dialogContext) => FutureBuilder<WordMeaning>(
-        future: repository.getWordMeaning(
-          word,
-          sourceLanguage: sourceLanguage,
-          targetLanguage: 'ur',
-        ),
+        future: lookup,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const AlertDialog(
-              content: SizedBox(
-                height: 72,
+              content: SizedBox.square(
+                dimension: 48,
                 child: Center(child: CircularProgressIndicator()),
               ),
             );
           }
+          if (snapshot.hasError) {
+            return AlertDialog(
+              icon: Icon(
+                Icons.cloud_off_outlined,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: const Text('Lookup failed'),
+              content: Text(
+                snapshot.error.toString().replaceFirst('Exception: ', ''),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Close'),
+                ),
+              ],
+            );
+          }
+          if (!snapshot.hasData) {
+            return const AlertDialog(
+              title: Text('Meaning unavailable'),
+              content: Text('The dictionary returned no result.'),
+            );
+          }
+
           final meaning = snapshot.data!;
           return AlertDialog(
             title: Text(meaning.word),
-            content: SingleChildScrollView(child: Text(meaning.meaning)),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(meaning.meaning),
+                  if (meaning.translations['ur'] != null) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      'Urdu translation',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(meaning.translations['ur']!),
+                  ] else if (meaning.translationError != null) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      'Translation unavailable: ${meaning.translationError}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext),
                 child: const Text('Close'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(dialogContext);
-                },
-                child: const Text('Done'),
               ),
             ],
           );

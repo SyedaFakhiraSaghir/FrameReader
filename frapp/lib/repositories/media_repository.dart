@@ -7,12 +7,15 @@ import '../models/media_item.dart';
 import '../platform/io_support.dart';
 import '../platform/web_media.dart';
 import '../services/media_service.dart';
+import '../services/ocr_service.dart';
 
 class MediaRepository {
-  MediaRepository({MediaService? mediaService})
-      : _mediaService = mediaService ?? MediaService();
+  MediaRepository({MediaService? mediaService, OCRService? ocrService})
+      : _mediaService = mediaService ?? MediaService(),
+        _ocrService = ocrService ?? OCRService();
 
   final MediaService _mediaService;
+  final OCRService _ocrService;
   static const _macCamera = MethodChannel('frapp/camera');
 
   Future<MediaItem?> pickImage() {
@@ -46,12 +49,21 @@ class MediaRepository {
     );
   }
 
-  Future<MediaItem> saveImageBytes(Uint8List bytes, {String name = 'frame.jpg'}) {
+  Future<MediaItem> saveImageBytes(Uint8List bytes,
+      {String name = 'frame.jpg'}) {
     return _toMediaItem(
       bytes: bytes,
       fileName: name,
       mediaType: MediaType.image,
       directory: 'image',
+    );
+  }
+
+  Future<MediaItem> extractFrame(MediaItem video, Duration position) async {
+    final bytes = await _ocrService.extractVideoFrame(video, position);
+    return saveImageBytes(
+      bytes,
+      name: 'frame_${position.inMilliseconds}.jpg',
     );
   }
 
@@ -169,7 +181,12 @@ class MediaRepository {
       case MediaType.image:
         return ext == 'png' ? 'image/png' : 'image/jpeg';
       case MediaType.video:
-        return ext == 'webm' ? 'video/webm' : 'video/mp4';
+        return switch (ext) {
+          'webm' => 'video/webm',
+          'mov' => 'video/quicktime',
+          'avi' => 'video/x-msvideo',
+          _ => 'video/mp4',
+        };
       case MediaType.document:
         if (ext == 'pdf') return 'application/pdf';
         return 'application/octet-stream';

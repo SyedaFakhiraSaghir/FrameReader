@@ -8,6 +8,7 @@ class WordMeaning extends Equatable {
   final List<String> synonyms;
   final List<String> antonyms;
   final Map<String, String> translations;
+  final String? translationError;
   final String sourceLanguage;
   final String targetLanguage;
 
@@ -19,6 +20,7 @@ class WordMeaning extends Equatable {
     this.synonyms = const [],
     this.antonyms = const [],
     this.translations = const {},
+    this.translationError,
     required this.sourceLanguage,
     required this.targetLanguage,
   });
@@ -32,6 +34,7 @@ class WordMeaning extends Equatable {
       synonyms: _stringList(json['synonyms']),
       antonyms: _stringList(json['antonyms']),
       translations: _stringMap(json['translations']),
+      translationError: json['translationError'] as String?,
       sourceLanguage: json['sourceLanguage'] as String? ?? 'en',
       targetLanguage: json['targetLanguage'] as String? ?? 'ur',
     );
@@ -46,6 +49,7 @@ class WordMeaning extends Equatable {
       'synonyms': synonyms,
       'antonyms': antonyms,
       'translations': translations,
+      'translationError': translationError,
       'sourceLanguage': sourceLanguage,
       'targetLanguage': targetLanguage,
     };
@@ -72,6 +76,7 @@ class WordMeaning extends Equatable {
         synonyms,
         antonyms,
         translations,
+        translationError,
         sourceLanguage,
         targetLanguage,
       ];

@@ -17,11 +17,13 @@ void setupDependencies() {
   getIt.registerLazySingleton<MediaService>(() => MediaService());
   getIt.registerLazySingleton<OCRService>(() => OCRService());
   getIt.registerLazySingleton<DictionaryService>(() => DictionaryService());
-  getIt.registerLazySingleton<MediaRepository>(() => MediaRepository());
+  getIt.registerLazySingleton<MediaRepository>(
+    () => MediaRepository(ocrService: getIt<OCRService>()),
+  );
   getIt.registerLazySingleton<OCRRepository>(
     () => OCRRepository(getIt<OCRService>()),
   );
   getIt.registerLazySingleton<DictionaryRepository>(
-    () => DictionaryRepository(),
+    () => DictionaryRepository(dictionaryService: getIt<DictionaryService>()),
   );
 }
